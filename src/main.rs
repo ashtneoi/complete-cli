@@ -65,6 +65,7 @@ fn main() {
                 wt = wt.0.get_mut(word).unwrap().as_mut().unwrap();
             }
         }
+        // TODO: take() leaf data.
         bincode::serialize_into(&mut fw, &t)
             .unwrap_or_else(|e| panic!("can't write config ({})", e));
     } else {
@@ -86,6 +87,6 @@ fn main() {
                 wt = v[0].1.as_ref().unwrap();
             }
         }
-        println!("{}", completed.join(" "));
+        println!("{} {}", name, completed.join(" "));
     }
 }

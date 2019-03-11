@@ -73,6 +73,7 @@ fn main() {
         );
         let mut fr = BufReader::new(&f);
         let t: CmdTree = bincode::deserialize_from(&mut fr).unwrap();
+        let mut completed = Vec::new();
         let mut wt = &t;
         for word in args {
             let v = wt.0.complete(&word);
@@ -81,8 +82,10 @@ fn main() {
             } else if v.len() > 1 {
                 panic!("multiple matches for '{}'", word);
             } else {
+                completed.push(v[0].0.clone());
                 wt = v[0].1.as_ref().unwrap();
             }
         }
+        println!("{}", completed.join(" "));
     }
 }

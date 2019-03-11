@@ -5,12 +5,21 @@ use std::env;
 use std::fs::File;
 use std::io::{
     BufRead,
+    BufReader,
+    BufWriter,
     stdin,
     stdout,
 };
 
+#[derive(Debug, Default)]
 #[derive(Serialize, Deserialize)]
 struct CmdTree(AbbrevTree<Option<Box<CmdTree>>>);
+
+impl CmdTree {
+    fn new() -> Self {
+        Default::default()
+    }
+}
 
 fn main() {
     let d = ProjectDirs::from(
@@ -40,10 +49,40 @@ fn main() {
         let f = File::create(&p).unwrap_or_else(
             |e| panic!("can't open '{}' ({})", p.to_str().unwrap(), e)
         );
+        let mut fw = BufWriter::new(&f);
+        let mut t: CmdTree = CmdTree::new();
+        for line in stdin().lock().lines() {
+            let line = line
+                .unwrap_or_else(|e| panic!("can't read line ({})", e));
+            let mut wt = &mut t;
+            let words = line.split(' ').filter(|x| x.len() > 0);
+            for word in words {
+                // TODO: When AbbrevTree learns not to add duplicate items,
+                // this `if` can go away.
+                if wt.0.get_mut(word).is_none() {
+                    wt.0.add(word, Some(Box::new(CmdTree::new())));
+                }
+                wt = wt.0.get_mut(word).unwrap().as_mut().unwrap();
+            }
+        }
+        bincode::serialize_into(&mut fw, &t)
+            .unwrap_or_else(|e| panic!("can't write config ({})", e));
     } else {
         let f = File::open(&p).unwrap_or_else(
             |e| panic!("can't open '{}' ({})", p.to_str().unwrap(), e)
         );
-        let t: CmdTree = bincode::deserialize_from(stdin().lock()).unwrap();
+        let mut fr = BufReader::new(&f);
+        let t: CmdTree = bincode::deserialize_from(&mut fr).unwrap();
+        let mut wt = &t;
+        for word in args {
+            let v = wt.0.complete(&word);
+            if v.len() == 0 {
+                panic!("no match for '{}'", word);
+            } else if v.len() > 1 {
+                panic!("multiple matches for '{}'", word);
+            } else {
+                wt = v[0].1.as_ref().unwrap();
+            }
+        }
     }
 }

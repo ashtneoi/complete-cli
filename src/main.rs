@@ -10,6 +10,10 @@ use std::io::{
     stdin,
     stdout,
 };
+use std::process::{
+    Command,
+    exit,
+};
 
 #[derive(Debug, Default)]
 #[derive(Serialize, Deserialize)]
@@ -76,10 +80,17 @@ fn main() {
         let t: CmdTree = bincode::deserialize_from(&mut fr).unwrap();
         let mut completed = Vec::new();
         let mut wt = &t;
+        let mut pass_through = false;
         for word in args {
+            // TODO: This is gross.
+            if pass_through {
+                completed.push(word);
+                continue;
+            }
             let v = wt.0.complete(&word);
             if v.len() == 0 {
-                panic!("no match for '{}'", word);
+                completed.push(word);
+                pass_through = true;
             } else if v.len() > 1 {
                 panic!("multiple matches for '{}'", word);
             } else {
@@ -87,6 +98,14 @@ fn main() {
                 wt = v[0].1.as_ref().unwrap();
             }
         }
-        println!("{} {}", name, completed.join(" "));
+
+        let mut c = Command::new(name);
+        for word in completed {
+            c.arg(word);
+        }
+        let exit_status = c.status().unwrap_or_else(
+            |e| panic!("couldn't run program")
+        );
+        exit(exit_status.code().unwrap());
     }
 }
